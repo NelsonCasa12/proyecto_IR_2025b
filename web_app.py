@@ -1,103 +1,204 @@
 from flask import Flask, request, render_template_string
-from preprocessing import preprocess_query
-from retrieval import tfidf_search, bm25_search
-from retrieval import tfidf_search, bm25_search, jaccard_search
 import pandas as pd
-import importlib
-import evaluation
-importlib.reload(evaluation)
+import os
+
+from preprocessing import preprocess_query
+from retrieval import (
+    build_tfidf_index, tfidf_search,
+    build_bm25, bm25_search,
+    jaccard_search
+)
 
 app = Flask(__name__)
 
-# Carga del corpus de documentos preprocesados
-df = pd.read_csv("data/corpus_climate_fever_preprocesado.csv")
-df = df.dropna(subset=["Texto_preprocesado", "Texto_original"]).reset_index(drop=True)
-docs = df["Texto_preprocesado"].tolist()
-doc_ids = df["Doc_ID"].tolist()
+DATA_PATH = "data/corpus_climate_fever_preprocesado.csv"
 
-# Carga de los Qrels
-df_qrels = pd.read_csv("data/qrels.tsv", sep="\t")
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError(f"No existe {DATA_PATH}")
 
-# Carga y preprocesamiento de las consultas
-query_texts = pd.read_csv("data/queries_preprocessed.tsv", sep="\t")
-query_texts["text_proc"] = query_texts["text"].apply(preprocess_query)
+df = pd.read_csv(DATA_PATH)
 
+# identificar columna con texto preprocesado
+text_col = None
+for col in ["text_proc", "Texto_preprocesado", "preprocessed", "text"]:
+    if col in df.columns:
+        text_col = col
+        break
+
+if text_col is None:
+    raise ValueError("No se encontró ninguna columna con texto preprocesado.")
+
+# identificar columna original si existe
+orig_text_col = None
+for col in ["Texto_original", "text_original", "original"]:
+    if col in df.columns:
+        orig_text_col = col
+        break
+
+# columna Doc_ID
+docid_col = None
+for col in ["Doc_ID", "doc_id", "id"]:
+    if col in df.columns:
+        docid_col = col
+        break
+
+# lista de documentos preprocesados
+docs = df[text_col].astype(str).tolist()
+
+# construir TF-IDF y BM25
+vectorizer, tfidf_matrix = build_tfidf_index(docs)
+bm25_index = build_bm25([d.split() for d in docs])
+
+# ---------------------------
+# HTML con Bootstrap
+# ---------------------------
 HTML = """
-<form method="post">
-  <label>Consulta:</label><br>
-  <input name="query" style="width: 300px;" value="{{ query }}"><br><br>
-  <label>Método de búsqueda:</label><br>
-  <select name="method">
-    <option value="tfidf" {% if method == 'tfidf' %}selected{% endif %}>TF-IDF</option>
-    <option value="bm25" {% if method == 'bm25' %}selected{% endif %}>BM25</option>
-    <option value="jaccard" {% if method == 'jaccard' %}selected{% endif %}>Jaccard (Binario)</option>
-  </select><br><br>
-  <input type="submit" value="Buscar">
-</form>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistema de Recuperación de Información</title>
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        body { background: #f5f7fa; }
+        .container {
+            max-width: 900px;
+            margin-top: 40px;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        h2 { text-align: center; margin-bottom: 30px; }
+        .result-box {
+            background: #eef2f7;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .query-info {
+            background: #f0f0fd;
+            padding: 10px;
+            border-left: 5px solid #4c59cf;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        .score {
+            font-weight: bold;
+            color: #364fc7;
+        }
+    </style>
+</head>
+<body>
 
-{% if query %}
-  <p><strong>Consulta ingresada (preprocesada):</strong> {{ query_pre }}</p>
-{% endif %}
+<div class="container">
+    <h2>🔎 Sistema de Recuperación de Información</h2>
 
-{% for i, score, doc in results %}
-  <p><b>Doc ID: {{ i }} - Rank: {{ score }}</b></p>
-  <p>{{ doc }}</p>
-  <hr>
-{% endfor %}
+    <form method="POST" class="row g-3 mb-4">
+        <div class="col-12">
+            <input class="form-control form-control-lg" name="q"
+                   placeholder="Escribe tu consulta..." required>
+        </div>
+
+        <div class="col-6">
+            <select class="form-select" name="method">
+                <option value="tfidf">TF-IDF</option>
+                <option value="bm25">BM25</option>
+                <option value="jaccard">Jaccard</option>
+            </select>
+        </div>
+
+        <div class="col-6">
+            <button class="btn btn-primary w-100 btn-lg">Buscar</button>
+        </div>
+    </form>
+
+    {% if q_original %}
+    <div class="query-info">
+        <p><b>Query original:</b> {{ q_original }}</p>
+        <p><b>Query procesada:</b> <code>{{ q_procesada }}</code></p>
+        <p><b>Método:</b> {{ metodo }}</p>
+    </div>
+    {% endif %}
+
+    {% if results %}
+        <h4>Resultados:</h4>
+        <table class="table table-bordered">
+            <thead class="table-secondary">
+                <tr>
+                    <th>Rank</th>
+                    <th>Doc ID</th>
+                    <th>Score</th>
+                    <th>Texto</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in results %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ r.doc_id }}</td>
+                    <td class="score">{{ r.score }}</td>
+                    <td>
+                        <b>Original:</b> {{ r.text_original }}<br>
+                        <b>Preprocesado:</b> <i>{{ r.text_proc }}</i>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+</div>
+
+</body>
+</html>
 """
 
+
+# ---------------------------
+# ROUTE
+# ---------------------------
 @app.route("/", methods=["GET", "POST"])
-def search():
+def index():
     results = []
-    query = ""
-    method = "tfidf"
-    query_id = ""
-    query_pre = ""
-    precision = recall = map_score = 0.0
+    q_original = None
+    q_procesada = None
+    metodo = None
 
     if request.method == "POST":
-         # Se obtiene la consulta del formulario, método seleccionado y la consulta
-        query = request.form["query"]
-        method = request.form["method"]
-        query_pre = preprocess_query(query)
+        q_original = request.form["q"]
+        metodo = request.form["method"]
 
-        # Se intenta encontrar el ID de la consulta preprocesada
-        matched = query_texts[query_texts["text_proc"].str.contains(query_pre, na=False)]
-        if not matched.empty:
-            query_id = matched.iloc[0]["query_id"]
+        q_procesada = preprocess_query(q_original)
 
-         # Ejecuta la búsqueda según el método seleccionado
-        if method == "bm25":
-            ranked_indices, scores = bm25_search(query_pre, docs)
-        elif method == "jaccard":
-            ranked_indices, scores = jaccard_search(query_pre, docs)
+        # ejecutar búsqueda
+        if metodo == "tfidf":
+            idxs, scores = tfidf_search(q_procesada, vectorizer, tfidf_matrix)
+        elif metodo == "bm25":
+            idxs, scores = bm25_search(q_procesada.split(), bm25_index)
         else:
-            ranked_indices, scores = tfidf_search(query_pre, docs)
-        
-        ranked_doc_ids = [doc_ids[i] for i in ranked_indices] # Se obtienen los IDs de documentos correspondientes a los índices rankeados
+            idxs, scores = jaccard_search(q_procesada, docs)
 
-        # Evalua la búsqueda si hay consulta preprocesada
-        if query_pre:
-            try:
-                print("Evaluate Iniciado")
-                precision, recall, map_score = evaluation.evaluate(
-                    "data/qrels.tsv", ranked_doc_ids, query_id=query_id, debug=True
-                )
-                print(f"[Evaluación] Query ID: {query_id}")
-                print(f"Precisión: {precision:.3f} | Recall: {recall:.3f} | MAP: {map_score:.3f}")
-            except Exception as e:
-                print("ERROR en evaluate:", e)
+        # construir resultados enriquecidos
+        for i, s in zip(idxs, scores):
+            doc_original = df[orig_text_col].iloc[i] if orig_text_col else "No disponible"
+            doc_id = df[docid_col].iloc[i] if docid_col else i
 
-    # Prepara los resultados para mostrar los top 10
-        results = [(i, f"{scores[i]:.3f}", df['Texto_original'][i]) for i in ranked_indices[:10]]
+            results.append({
+                "doc_id": doc_id,
+                "score": round(float(s), 4),
+                "text_original": str(doc_original),
+                "text_proc": docs[i]
+            })
 
     return render_template_string(
         HTML,
         results=results,
-        query=query,
-        query_pre=query_pre,
-        method=method
+        q_original=q_original,
+        q_procesada=q_procesada,
+        metodo=metodo
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)

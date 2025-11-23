@@ -1,50 +1,64 @@
-import pandas as pd
+# preprocessing.py
 import re
+import pandas as pd
 import nltk
 import spacy
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer
 
-# Descargar recursos necesarios de NLTK
-nltk.download('punkt')
-nltk.download('punkt_tab')
-nltk.download('stopwords')
+# Descargar recursos válidos
+nltk.download('punkt', quiet=True)
+nltk.download('stopwords', quiet=True)
 
-# Cargar modelo de spaCy y recursos de NLTK
-nlp = spacy.load("en_core_web_sm")
+# Cargar spaCy
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    raise OSError(
+        "El modelo SpaCy 'en_core_web_sm' no está instalado.\n"
+        "Ejecute: python -m spacy download en_core_web_sm"
+    )
+
 stop_words = set(stopwords.words('english'))
-stemmer = PorterStemmer()
 
-# Función general de preprocesamiento de texto
-def preprocess(text):
-    text = text.lower()                                # Convertir a minúsculas
-    text = re.sub(r'[^a-z\s]', '', text)               # Eliminar caracteres no alfabéticos
-    tokens = nltk.word_tokenize(text)                  # Tokenizar texto
-    tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]  # Stemming y eliminación de stopwords
-    doc = nlp(' '.join(tokens))                        # Procesamiento con spaCy
-    lemmatized = [token.lemma_ for token in doc]       # Lematización
-    return ' '.join(lemmatized)                        # Devolver texto limpio
+def normalize_text(text):
+    if not isinstance(text, str):
+        return ""
+    text = text.lower()
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'[^a-z0-9\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-# Preprocesar un corpus en formato CSV que contenga una columna llamada "Texto"
-def preprocess_corpus(csv_path):
-    df = pd.read_csv(csv_path)                         # Leer archivo CSV
-    df["Texto_preprocesado"] = df["Texto"].apply(preprocess)  # Aplicar preprocesamiento
-    return df
+def preprocess(text, remove_stopwords=True, do_lemmatize=True):
+    text = normalize_text(text)
+    tokens = nltk.word_tokenize(text)
 
-# Preprocesar un archivo TSV con queries (consulta) y guardar el resultado
-def preprocess_queries_tsv(tsv_path, output_path="queries_preprocessed.tsv"):
-    df = pd.read_csv(tsv_path, sep="\t")               # Leer archivo TSV
-    df["text_proc"] = df["text"].apply(preprocess)     # Preprocesar columna 'text'
-    df.to_csv(output_path, sep="\t", index=False)      # Guardar nuevo archivo TSV
+    if remove_stopwords:
+        tokens = [t for t in tokens if t not in stop_words and len(t) > 1]
+
+    doc = nlp(" ".join(tokens))
+
+    if do_lemmatize:
+        lemmas = [token.lemma_.lower() for token in doc if token.lemma_ != '-PRON-']
+        return " ".join(lemmas)
+    else:
+        return " ".join(tokens)
+
+def preprocess_queries_tsv(tsv_path, output_path):
+    df = pd.read_csv(tsv_path, sep="\t")
+    
+    # Detecta columna correcta
+    if 'text' in df.columns:
+        col = 'text'
+    elif 'query' in df.columns:
+        col = 'query'
+    else:
+        raise ValueError("El archivo debe tener columna 'text' o 'query'.")
+
+    df["text_proc"] = df[col].astype(str).apply(preprocess)
+    df.to_csv(output_path, sep="\t", index=False)
     print(f"Archivo guardado como {output_path}")
     return df
 
-# Preprocesar una sola consulta (string) manualmente
 def preprocess_query(text):
-    text = text.lower()
-    text = re.sub(r'[^a-z\s]', '', text)
-    tokens = nltk.word_tokenize(text)
-    tokens = [stemmer.stem(t) for t in tokens if t not in stop_words]
-    doc = nlp(' '.join(tokens))
-    lemmatized = [token.lemma_ for token in doc]
-    return ' '.join(lemmatized)
+    return preprocess(text)
