@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template_string
 from preprocessing import preprocess_query
 from retrieval import tfidf_search, bm25_search
+from retrieval import tfidf_search, bm25_search, jaccard_search
 import pandas as pd
 import importlib
 import evaluation
@@ -29,6 +30,7 @@ HTML = """
   <select name="method">
     <option value="tfidf" {% if method == 'tfidf' %}selected{% endif %}>TF-IDF</option>
     <option value="bm25" {% if method == 'bm25' %}selected{% endif %}>BM25</option>
+    <option value="jaccard" {% if method == 'jaccard' %}selected{% endif %}>Jaccard (Binario)</option>
   </select><br><br>
   <input type="submit" value="Buscar">
 </form>
@@ -67,6 +69,8 @@ def search():
          # Ejecuta la búsqueda según el método seleccionado
         if method == "bm25":
             ranked_indices, scores = bm25_search(query_pre, docs)
+        elif method == "jaccard":
+            ranked_indices, scores = jaccard_search(query_pre, docs)
         else:
             ranked_indices, scores = tfidf_search(query_pre, docs)
         
