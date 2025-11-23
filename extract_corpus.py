@@ -8,6 +8,7 @@ from nltk.stem import PorterStemmer
 
 # Descarga recursos necesarios para tokenización y stopwords
 nltk.download('punkt')
+nltk.download('punkt_tab') # <--- AGREGADO: Necesario para evitar el error LookupError
 nltk.download('stopwords')
 
 # Carga modelo de spaCy para lematización
@@ -33,7 +34,13 @@ dataset = ir_datasets.load("beir/climate-fever")
 docs_data = []
 
 # Iterar sobre los documentos, preprocesar y almacenar
+print("Procesando documentos (Limitado a 50,000)...")
 for i, doc in enumerate(dataset.docs_iter(), start=1):
+    # --- AGREGADO: Límite para no tardar horas ---
+    if i > 50000:
+        break
+    # ---------------------------------------------
+
     if doc.text and doc.text.strip():
         docs_data.append({
             'ID': i,
@@ -41,7 +48,12 @@ for i, doc in enumerate(dataset.docs_iter(), start=1):
             'Texto_original': doc.text,
             'Texto_preprocesado': preprocess(doc.text)
         })
+    
+    # Opcional: Ver progreso cada 1000 docs
+    if i % 1000 == 0:
+        print(f"Procesados {i} documentos...")
 
 # Guardar resultados en un archivo CSV
 df = pd.DataFrame(docs_data)
 df.to_csv("data/corpus_climate_fever_preprocesado.csv", index=False)
+print("¡Proceso completado! Archivo guardado.")
