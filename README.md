@@ -39,8 +39,6 @@ proyecto_rdi/
 │   └── quick_tests.ipynb
 │
 ├── README.md
-├── requirements.txt
-└── Proyecto_RI_fixed.zip
 ```
 
 ---
