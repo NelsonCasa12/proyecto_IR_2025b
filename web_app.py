@@ -10,7 +10,7 @@ importlib.reload(evaluation)
 app = Flask(__name__)
 
 # Carga del corpus de documentos preprocesados
-df = pd.read_csv("data/corpus_arguana_preprocesado.csv")
+df = pd.read_csv("data/corpus_climate_fever_preprocesado.csv")
 df = df.dropna(subset=["Texto_preprocesado", "Texto_original"]).reset_index(drop=True)
 docs = df["Texto_preprocesado"].tolist()
 doc_ids = df["Doc_ID"].tolist()
