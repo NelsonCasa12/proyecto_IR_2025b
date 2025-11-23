@@ -15,25 +15,33 @@ Incluye además scripts para preprocesamiento, generación de qrels/queries (BEI
 
 ---
 
-## Estructura del repositorio
+## Estructura del Proyecto
+
+```text
 proyecto_rdi/
 │
-├── data/
-│ ├── corpus_climate_fever_preprocesado.csv # Corpus preprocesado (si lo tienes)
-│ ├── queries.tsv # Queries originales (generado por script)
-│ ├── queries_preprocessed.tsv # Queries preprocesadas
-│ └── qrels.tsv # Juicios de relevancia (query_id, doc_id, relevance)
+├── data/                               # Datos de entrada y corpus
+│   ├── corpus_climate_fever_preprocesado.csv
+│   ├── queries.tsv                     # Consultas originales
+│   ├── queries_preprocessed.tsv        # Consultas procesadas
+│   └── qrels.tsv                       # Juicios de relevancia
 │
-├── preprocessing.py # Preprocesamiento de texto
-├── retrieval.py # TF-IDF, BM25 y Jaccard
-├── evaluation.py # Precision, Recall, MAP
-├── generar_qrels_y_queries.py # Genera queries/qrels desde BEIR
-├── extract_corpus.py # (si lo incluyes) extrae/guarda corpus
-├── web_app.py # Interfaz web (Flask) mínima
-├── run_evaluation.py # Script opcional para ejecutar evaluación
+├── src/                                # Código fuente principal
+│   ├── preprocessing.py                # Limpieza y tokenización
+│   ├── retrieval.py                    # Modelos (Jaccard, TF-IDF, BM25)
+│   ├── evaluation.py                   # Métricas (Precision, Recall, MAP)
+│   ├── generar_qrels_y_queries.py      # Scripts auxiliares
+│   ├── extract_corpus.py               # Extracción de corpus
+│   ├── run_evaluation.py               # Script maestro de evaluación
+│   └── web_app.py                      # Interfaz web (Flask)
+│
+├── notebooks/
+│   └── quick_tests.ipynb
+│
 ├── README.md
-└── requirements.txt
-
+├── requirements.txt
+└── Proyecto_RI_fixed.zip
+```
 
 ---
 
