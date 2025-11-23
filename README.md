@@ -14,18 +14,7 @@ Proyecto para el curso de Recuperación de Información. Implementa:
 - Python 3.8+
 - Recomendado entorno virtual (venv)
 
-### Instalación rápida
-```bash
-python -m venv venv
-# macOS / Linux
-source venv/bin/activate
-# Windows (PowerShell)
-venv\Scripts\Activate.ps1
-
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
-
-
+## Estructura del Proyecto
 proyecto_rdi/
 │
 ├── data/
@@ -49,3 +38,14 @@ proyecto_rdi/
 ├── README.md
 ├── requirements.txt
 └── Proyecto_RI_fixed.zip (versión corregida que generé)
+
+### Instalación rápida
+```bash
+python -m venv venv
+# macOS / Linux
+source venv/bin/activate
+# Windows (PowerShell)
+venv\Scripts\Activate.ps1
+
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
