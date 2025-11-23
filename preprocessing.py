@@ -7,6 +7,7 @@ from nltk.stem import PorterStemmer
 
 # Descargar recursos necesarios de NLTK
 nltk.download('punkt')
+nltk.download('punkt_tab')
 nltk.download('stopwords')
 
 # Cargar modelo de spaCy y recursos de NLTK
