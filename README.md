@@ -35,9 +35,6 @@ proyecto_rdi/
 │   ├── run_evaluation.py               # Script maestro de evaluación
 │   └── web_app.py                      # Interfaz web (Flask)
 │
-├── notebooks/
-│   └── quick_tests.ipynb
-│
 ├── README.md
 ```
 
