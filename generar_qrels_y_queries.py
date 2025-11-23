@@ -1,5 +1,7 @@
 import ir_datasets
 import pandas as pd
+# Importamos la función para preprocesar las queries al final
+from preprocessing import preprocess_queries_tsv 
 
 # Cargar dataset
 print("Cargando dataset beir/climate-fever para queries y qrels...")
@@ -24,3 +26,6 @@ for query in queries:
 df_queries = pd.DataFrame(query_rows, columns=["query_id", "text"])
 df_queries.to_csv("data/queries.tsv", sep="\t", index=False)
 print("Archivo queries.tsv guardado en la carpeta 'data/'")
+
+print("Generando queries_preprocessed.tsv (necesario para evaluación)...")
+preprocess_queries_tsv("data/queries.tsv", "data/queries_preprocessed.tsv")
